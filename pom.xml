@@ -120,6 +120,9 @@
                     <value>true</value>
                 </property>
             </activation>
+            <properties>
+                <gpg.skip>false</gpg.skip>
+            </properties>
             <build>
                 <plugins>
                     <!-- GPG Signing for releases -->
