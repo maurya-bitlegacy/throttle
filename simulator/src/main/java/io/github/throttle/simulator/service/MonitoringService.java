@@ -42,6 +42,12 @@ public class MonitoringService {
     private long lastTasksKilled = 0;
     private long lastPauseCount = 0;
 
+    /**
+     * Create a new monitoring service with the specified templates and load control service.
+     *
+     * @param messagingTemplate the WebSocket messaging template
+     * @param loadControlService the load control service
+     */
     public MonitoringService(SimpMessagingTemplate messagingTemplate, LoadControlService loadControlService) {
         this.messagingTemplate = messagingTemplate;
         this.loadControlService = loadControlService;
@@ -85,6 +91,9 @@ public class MonitoringService {
 
     /**
      * Send a log message to all connected dashboard clients.
+     *
+     * @param message the log message to send
+     * @param type the type of log message (info, success, error)
      */
     public void sendLogMessage(String message, String type) {
         Map<String, Object> logMessage = new HashMap<>();
@@ -294,6 +303,9 @@ public class MonitoringService {
     /**
      * Dashboard update message sent via WebSocket.
      */
+    /**
+     * Dashboard update message sent via WebSocket.
+     */
     public static class DashboardUpdate {
         private long timestamp;
         private double cpuUsage;
@@ -311,29 +323,172 @@ public class MonitoringService {
         private String memoryMonitorState;
 
         // Getters and setters
+        /**
+         * Get the timestamp of the dashboard update.
+         *
+         * @return the timestamp
+         */
         public long getTimestamp() { return timestamp; }
+
+        /**
+         * Set the timestamp of the dashboard update.
+         *
+         * @param timestamp the timestamp to set
+         */
         public void setTimestamp(long timestamp) { this.timestamp = timestamp; }
+
+        /**
+         * Get the CPU usage percentage.
+         *
+         * @return the CPU usage
+         */
         public double getCpuUsage() { return cpuUsage; }
+
+        /**
+         * Set the CPU usage percentage.
+         *
+         * @param cpuUsage the CPU usage to set
+         */
         public void setCpuUsage(double cpuUsage) { this.cpuUsage = cpuUsage; }
+
+        /**
+         * Get the memory usage percentage.
+         *
+         * @return the memory usage
+         */
         public double getMemoryUsage() { return memoryUsage; }
+
+        /**
+         * Set the memory usage percentage.
+         *
+         * @param memoryUsage the memory usage to set
+         */
         public void setMemoryUsage(double memoryUsage) { this.memoryUsage = memoryUsage; }
+
+        /**
+         * Get the queue size.
+         *
+         * @return the queue size
+         */
         public int getQueueSize() { return queueSize; }
+
+        /**
+         * Set the queue size.
+         *
+         * @param queueSize the queue size to set
+         */
         public void setQueueSize(int queueSize) { this.queueSize = queueSize; }
+
+        /**
+         * Get the number of active threads.
+         *
+         * @return the number of active threads
+         */
         public int getActiveThreads() { return activeThreads; }
+
+        /**
+         * Set the number of active threads.
+         *
+         * @param activeThreads the number of active threads to set
+         */
         public void setActiveThreads(int activeThreads) { this.activeThreads = activeThreads; }
+
+        /**
+         * Get the number of tasks completed.
+         *
+         * @return the number of tasks completed
+         */
         public long getTasksCompleted() { return tasksCompleted; }
+
+        /**
+         * Set the number of tasks completed.
+         *
+         * @param tasksCompleted the number of tasks completed to set
+         */
         public void setTasksCompleted(long tasksCompleted) { this.tasksCompleted = tasksCompleted; }
+
+        /**
+         * Get the number of tasks failed.
+         *
+         * @return the number of tasks failed
+         */
         public long getTasksFailed() { return tasksFailed; }
+
+        /**
+         * Set the number of tasks failed.
+         *
+         * @param tasksFailed the number of tasks failed to set
+         */
         public void setTasksFailed(long tasksFailed) { this.tasksFailed = tasksFailed; }
+
+        /**
+         * Get the number of tasks killed.
+         *
+         * @return the number of tasks killed
+         */
         public long getTasksKilled() { return tasksKilled; }
+
+        /**
+         * Set the number of tasks killed.
+         *
+         * @param tasksKilled the number of tasks killed to set
+         */
         public void setTasksKilled(long tasksKilled) { this.tasksKilled = tasksKilled; }
+
+        /**
+         * Get the pause count.
+         *
+         * @return the pause count
+         */
         public long getPauseCount() { return pauseCount; }
+
+        /**
+         * Set the pause count.
+         *
+         * @param pauseCount the pause count to set
+         */
         public void setPauseCount(long pauseCount) { this.pauseCount = pauseCount; }
+
+        /**
+         * Check if the system is paused.
+         *
+         * @return true if paused, false otherwise
+         */
         public boolean isPaused() { return paused; }
+
+        /**
+         * Set the paused state.
+         *
+         * @param paused the paused state to set
+         */
         public void setPaused(boolean paused) { this.paused = paused; }
+
+        /**
+         * Check if CPU load is active.
+         *
+         * @return true if CPU load is active, false otherwise
+         */
         public boolean isCpuLoadActive() { return cpuLoadActive; }
+
+        /**
+         * Set the CPU load active state.
+         *
+         * @param cpuLoadActive the CPU load active state to set
+         */
         public void setCpuLoadActive(boolean cpuLoadActive) { this.cpuLoadActive = cpuLoadActive; }
+
+        /**
+         * Check if memory load is active.
+         *
+         * @return true if memory load is active, false otherwise
+         */
         public boolean isMemoryLoadActive() { return memoryLoadActive; }
+
+        /**
+         * Set the memory load active state.
+         *
+         * @param memoryLoadActive the memory load active state to set
+         */
         public void setMemoryLoadActive(boolean memoryLoadActive) { this.memoryLoadActive = memoryLoadActive; }
         public String getCpuMonitorState() { return cpuMonitorState; }
         public void setCpuMonitorState(String cpuMonitorState) { this.cpuMonitorState = cpuMonitorState; }

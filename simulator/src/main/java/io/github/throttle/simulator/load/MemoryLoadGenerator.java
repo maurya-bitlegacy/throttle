@@ -86,6 +86,8 @@ public class MemoryLoadGenerator {
 
     /**
      * Check if generator is running.
+     *
+     * @return true if the memory load generator is active, false otherwise
      */
     public boolean isRunning() {
         return running.get();

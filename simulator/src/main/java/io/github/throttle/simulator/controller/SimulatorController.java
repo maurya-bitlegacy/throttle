@@ -21,6 +21,10 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.*;
 
+/**
+ * Controller for the simulator API endpoints.
+ * Handles dashboard, load generation, test execution, and status reporting.
+ */
 @Controller
 @RequestMapping("/api/simulator")
 public class SimulatorController {
@@ -51,6 +55,9 @@ public class SimulatorController {
         return t;
     });
 
+    /**
+     * Shutdown the background executor service when the controller is destroyed.
+     */
     @PreDestroy
     public void shutdown() {
         try {
@@ -60,6 +67,12 @@ public class SimulatorController {
         }
     }
 
+    /**
+     * Display the dashboard view.
+     *
+     * @param model the model to populate with dashboard data
+     * @return the dashboard view template name
+     */
     @GetMapping("/dashboard")
     public String dashboard(Model model) {
         try {

@@ -59,6 +59,8 @@ public class CpuLoadGenerator {
 
     /**
      * Wait for load generation to complete.
+     *
+     * @throws InterruptedException if the thread is interrupted while waiting
      */
     public void await() throws InterruptedException {
         for (Thread thread : workerThreads) {
@@ -69,6 +71,8 @@ public class CpuLoadGenerator {
 
     /**
      * Check if CPU load is currently running.
+     *
+     * @return true if CPU load generation is active, false otherwise
      */
     public boolean isRunning() {
         return running.get() && !workerThreads.isEmpty();
