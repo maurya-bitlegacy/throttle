@@ -982,10 +982,11 @@ public class ScenarioRunner {
             executor = ThrottleServiceFactory.builder()
                 .workerExecutorService(Executors.newFixedThreadPool(3))
                 .queueCapacity(20)
-                .cpuMonitor(55, 35)
+                .cpuMonitor(25, 15)          // Very low thresholds to ensure more pauses
                 .memoryMonitor(85, 60)
-                .hotMonitoringDebounceInterval(java.time.Duration.ofMillis(500))
+                .hotMonitoringDebounceInterval(java.time.Duration.ofMillis(100))  // Faster sampling
                 .coldMonitoringInterval(java.time.Duration.ofMillis(500))
+                .hysteresis(java.time.Duration.ofMillis(500))  // Reduce hysteresis to be more responsive
                 .maxPauseCount(2)            // Kill after 2 pauses
                 .taskTerminationEnabled(true)
                 .build();
@@ -996,19 +997,19 @@ public class ScenarioRunner {
             int initialTaskCount = 3;
             List<Future<Void>> initialFutures = new ArrayList<>();
             for (int i = 0; i < initialTaskCount; i++) {
-                // 500 items × 100ms = 50s — long enough to survive 3+ pause cycles
-                SimulatedTask task = new SimulatedTask("cascade-task-" + i, 500,
-                    Priority.MEDIUM, 5, 100);
+                // 1000 items × 50ms = 50s with 100 chunks — more frequent pause checks
+                SimulatedTask task = new SimulatedTask("cascade-task-" + i, 1000,
+                    Priority.MEDIUM, 10, 50);
                 initialFutures.add(executor.submit(task));
             }
 
             // Wait for first chunks to complete, then drive 3 pause cycles via CPU spikes
-            Thread.sleep(800);
+            Thread.sleep(1500);  // Wait longer to ensure tasks are actively processing
             log.info("Tasks started. Driving 3 CPU spike cycles to kill them (maxPauseCount=2)...");
 
             for (int cycle = 1; cycle <= 3; cycle++) {
                 log.info("CPU spike {} / 3", cycle);
-                cpuLoader.generateLoad(70, 3000);
+                cpuLoader.generateLoad(80, 4000);  // Higher load and longer duration
                 cpuLoader.await();
                 log.info("Spike {} done — waiting for cool down", cycle);
                 Thread.sleep(2000);
@@ -1159,50 +1160,69 @@ public class ScenarioRunner {
     public List<TestResult> runAllTests() {
         List<TestResult> results = new ArrayList<>();
 
-        log.info("===================================================");
-        log.info("Starting Adaptive Executor Simulator Test Suite");
-        log.info("System: Apple M4 Air, 10 cores, 16GB RAM");
-        log.info("===================================================");
+        String suiteHeader = "===================================================";
+        String suiteInfo = "Starting Adaptive Executor Simulator Test Suite";
 
-        results.add(runNormalOperationTest());
-        sleep(2000);
+        log.info(suiteHeader);
+        log.info(suiteInfo);
+        log.info(suiteHeader);
 
-        results.add(runResourceSpikeTest());
-        sleep(2000);
+        // Send initial log to dashboard
+        if (monitoringService != null) {
+            monitoringService.sendInfoLog(suiteHeader);
+            monitoringService.sendInfoLog(suiteInfo);
+            monitoringService.sendInfoLog(suiteHeader);
+        }
 
-        results.add(runSustainedLoadTest());
-        sleep(2000);
+        // Define test names and methods in order
+        String[] testNames = {
+            "Normal Operation", "Resource Spike", "Sustained Load", "Memory Pressure",
+            "Task Killing", "Priority Scheduling", "Stress Test", "Flapping Monitor",
+            "Queue Overflow", "Failing Tasks", "Cascade Kill", "Shutdown Under Load"
+        };
 
-        results.add(runMemoryPressureTest());
-        sleep(2000);
+        java.util.function.Supplier<TestResult>[] testMethods = new java.util.function.Supplier[] {
+            this::runNormalOperationTest, this::runResourceSpikeTest, this::runSustainedLoadTest, this::runMemoryPressureTest,
+            this::runTaskKillingTest, this::runPrioritySchedulingTest, this::runStressTest, this::runFlappingMonitorTest,
+            this::runQueueOverflowTest, this::runFailingTasksTest, this::runCascadeKillTest, this::runShutdownUnderLoadTest
+        };
 
-        results.add(runTaskKillingTest());
-        sleep(2000);
+        for (int i = 0; i < testNames.length; i++) {
+            String testName = testNames[i];
+            java.util.function.Supplier<TestResult> testMethod = testMethods[i];
 
-        results.add(runPrioritySchedulingTest());
-        sleep(2000);
+            String runningMsg = "Running test " + (i+1) + "/" + testNames.length + ": " + testName;
+            log.info(runningMsg);
+            if (monitoringService != null) {
+                monitoringService.sendInfoLog(runningMsg);
+            }
 
-        results.add(runStressTest());
-        sleep(2000);
+            TestResult result = testMethod.get();
+            results.add(result);
 
-        results.add(runFlappingMonitorTest());
-        sleep(2000);
+            String statusMsg = result.isSuccess()
+                ? "✓ " + testName + " - PASSED (" + result.getDuration() + "ms)"
+                : "✗ " + testName + " - FAILED: " + result.getError();
 
-        results.add(runQueueOverflowTest());
-        sleep(2000);
+            log.info(statusMsg);
+            if (monitoringService != null) {
+                if (result.isSuccess()) {
+                    monitoringService.sendSuccessLog(statusMsg);
+                } else {
+                    monitoringService.sendErrorLog(statusMsg);
+                }
+            }
 
-        results.add(runFailingTasksTest());
-        sleep(2000);
-
-        results.add(runCascadeKillTest());
-        sleep(2000);
-
-        results.add(runShutdownUnderLoadTest());
+            sleep(2000);
+        }
 
         // Print summary
-        log.info("===================================================");
-        log.info("Test Suite Summary");
-        log.info("===================================================");
+        String summaryHeader = "===================================================";
+        String summaryTitle = "Test Suite Summary";
+        String summarySeparator = "---------------------------------------------------";
+        log.info(summaryHeader);
+        log.info(summaryTitle);
+        log.info(summaryHeader);
 
         int passed = 0;
         int failed = 0;
@@ -1216,9 +1236,27 @@ public class ScenarioRunner {
             }
         }
 
-        log.info("---------------------------------------------------");
+        log.info(summarySeparator);
         log.info("Total: {} tests, Passed: {}, Failed: {}", results.size(), passed, failed);
-        log.info("===================================================");
+        log.info(summaryHeader);
+
+        // Send summary to dashboard
+        if (monitoringService != null) {
+            monitoringService.sendInfoLog(summaryHeader);
+            monitoringService.sendInfoLog(summaryTitle);
+            monitoringService.sendInfoLog(summaryHeader);
+
+            for (TestResult r : results) {
+                String testSummary = r.isSuccess()
+                    ? "✓ " + r.getScenarioName() + " - PASSED (" + r.getDuration() + "ms)"
+                    : "✗ " + r.getScenarioName() + " - FAILED";
+                monitoringService.sendLogMessage(testSummary, r.isSuccess() ? "success" : "error");
+            }
+
+            monitoringService.sendInfoLog(summarySeparator);
+            monitoringService.sendInfoLog("Total: " + results.size() + " tests, Passed: " + passed + ", Failed: " + failed);
+            monitoringService.sendInfoLog(summaryHeader);
+        }
 
         return results;
     }

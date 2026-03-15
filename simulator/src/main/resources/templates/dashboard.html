@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Adaptive Executor Monitor - Live Dashboard</title>
+    <title>Throttle Service Monitor - Live Dashboard</title>
     <style>
         * {
             margin: 0;
@@ -287,8 +287,8 @@
     <div id="connectionStatus" class="connection-status disconnected">⚠ Disconnected</div>
 
     <div class="header">
-        <h1>🚀 Adaptive Executor Monitor</h1>
-        <p class="subtitle">Real-time monitoring dashboard • Apple M4 Air • 10 cores • 16GB RAM</p>
+        <h1>🚀 Throttle Service Monitor</h1>
+        <p class="subtitle">Real-time monitoring dashboard • Resource-aware task execution with automatic pause/resume</p>
     </div>
 
     <div class="dashboard-grid">
@@ -327,6 +327,10 @@
                 <span class="metric-value" id="activeThreads">0</span>
             </div>
             <div class="metric">
+                <span class="metric-label">Workers Idle</span>
+                <span class="metric-value" id="idleThreads">0</span>
+            </div>
+            <div class="metric">
                 <span class="metric-label">Paused</span>
                 <span id="pausedStatus" class="badge badge-success">NO</span>
             </div>
@@ -352,6 +356,23 @@
             <div class="metric">
                 <span class="metric-label">Killed</span>
                 <span class="metric-value" style="color: #ff4444" id="tasksKilled">0</span>
+            </div>
+        </div>
+
+        <!-- Resource Monitor Status -->
+        <div class="card">
+            <div class="card-title">Monitor Status</div>
+            <div class="metric">
+                <span class="metric-label">CPU Monitor</span>
+                <span id="cpuMonitorStatus" class="badge badge-success">NORMAL</span>
+            </div>
+            <div class="metric">
+                <span class="metric-label">Memory Monitor</span>
+                <span id="memoryMonitorStatus" class="badge badge-success">NORMAL</span>
+            </div>
+            <div class="metric">
+                <span class="metric-label">System State</span>
+                <span id="systemState" class="badge badge-success">ACTIVE</span>
             </div>
         </div>
     </div>
@@ -411,6 +432,29 @@
         </div>
     </div>
 
+    <!-- Configuration Info -->
+    <div class="dashboard-grid">
+        <div class="card">
+            <div class="card-title">⚙️ Throttle Configuration</div>
+            <div class="metric">
+                <span class="metric-label">CPU Thresholds (Hot/Cold)</span>
+                <span class="metric-value" id="cpuThresholds">75% / 50%</span>
+            </div>
+            <div class="metric">
+                <span class="metric-label">Memory Thresholds (Hot/Cold)</span>
+                <span class="metric-value" id="memoryThresholds">70% / 50%</span>
+            </div>
+            <div class="metric">
+                <span class="metric-label">Max Pause Count</span>
+                <span class="metric-value" id="maxPauseCount">5</span>
+            </div>
+            <div class="metric">
+                <span class="metric-label">Queue Capacity</span>
+                <span class="metric-value" id="queueCapacity">100</span>
+            </div>
+        </div>
+    </div>
+
     <!-- Activity Log -->
     <div class="card">
         <div class="card-title">📋 Activity Log</div>
@@ -434,7 +478,13 @@
 
                 stompClient.subscribe('/topic/monitor', function(message) {
                     const data = JSON.parse(message.body);
-                    updateDashboard(data);
+                    if (data.type === 'log') {
+                        // Handle log messages separately
+                        log(data.message, data.level);
+                    } else {
+                        // Handle dashboard updates
+                        updateDashboard(data);
+                    }
                 });
             }, function(error) {
                 log('Connection error: ' + error, 'error');
@@ -473,6 +523,11 @@
             document.getElementById('activeThreads').textContent = (data.activeThreads || 0);
             document.getElementById('pauseCount').textContent = (data.pauseCount || 0);
 
+            // Calculate idle threads (assuming total worker threads are known or derived)
+            // For now, we'll calculate based on active threads vs queue size
+            const idleThreads = Math.max(0, (data.totalWorkerThreads || 2) - (data.activeThreads || 0));
+            document.getElementById('idleThreads').textContent = idleThreads;
+
             // Paused status
             const pausedBadge = document.getElementById('pausedStatus');
             if (data.paused) {
@@ -487,6 +542,20 @@
             document.getElementById('tasksCompleted').textContent = (data.tasksCompleted || 0);
             document.getElementById('tasksFailed').textContent = (data.tasksFailed || 0);
             document.getElementById('tasksKilled').textContent = (data.tasksKilled || 0);
+
+            // Monitor status badges
+            updateMonitorStatus('cpuMonitorStatus', data.cpuMonitorState || 'NORMAL');
+            updateMonitorStatus('memoryMonitorStatus', data.memoryMonitorState || 'NORMAL');
+
+            // System state based on paused status
+            const systemStateBadge = document.getElementById('systemState');
+            if (data.paused) {
+                systemStateBadge.textContent = 'PAUSED';
+                systemStateBadge.className = 'badge badge-warning';
+            } else {
+                systemStateBadge.textContent = 'ACTIVE';
+                systemStateBadge.className = 'badge badge-success';
+            }
 
             // Load status
             updateLoadBadge('cpuLoadBadge', data.cpuLoadActive);
@@ -515,6 +584,21 @@
             } else {
                 badge.textContent = 'Inactive';
                 badge.className = 'badge badge-info';
+            }
+        }
+
+        function updateMonitorStatus(id, state) {
+            const badge = document.getElementById(id);
+            const stateUpper = state.toUpperCase();
+            if (stateUpper === 'HOT' || stateUpper === 'PAUSED') {
+                badge.textContent = stateUpper;
+                badge.className = 'badge badge-danger';
+            } else if (stateUpper === 'WARNING' || stateUpper === 'WARN') {
+                badge.textContent = stateUpper;
+                badge.className = 'badge badge-warning';
+            } else {
+                badge.textContent = 'NORMAL';
+                badge.className = 'badge badge-success';
             }
         }
 

@@ -10,7 +10,6 @@ import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
  * Generates CPU load by performing CPU-intensive calculations.
- * Designed for Apple M4 Air with 10 cores.
  */
 @Service
 public class CpuLoadGenerator {

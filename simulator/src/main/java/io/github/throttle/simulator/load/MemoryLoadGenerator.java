@@ -10,7 +10,6 @@ import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
  * Generates memory load by allocating large objects.
- * Designed for Apple M4 Air with 16GB RAM.
  */
 @Service
 public class MemoryLoadGenerator {

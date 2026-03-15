@@ -4,6 +4,7 @@ import io.github.throttle.service.api.ThrottleService;
 import io.github.throttle.simulator.load.CpuLoadGenerator;
 import io.github.throttle.simulator.load.MemoryLoadGenerator;
 import io.github.throttle.simulator.service.LoadControlService;
+import io.github.throttle.simulator.service.MonitoringService;
 import io.github.throttle.simulator.test.ScenarioRunner;
 import io.github.throttle.simulator.test.TestResult;
 import org.slf4j.Logger;
@@ -39,6 +40,9 @@ public class SimulatorController {
 
     @Autowired
     private LoadControlService loadControlService;
+
+    @Autowired
+    private MonitoringService monitoringService;
 
     // Single shared executor for background tasks
     private final ExecutorService bgExecutor = Executors.newCachedThreadPool(r -> {

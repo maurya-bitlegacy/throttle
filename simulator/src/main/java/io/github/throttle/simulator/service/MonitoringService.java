@@ -12,7 +12,9 @@ import org.springframework.stereotype.Service;
 
 import jakarta.annotation.PostConstruct;
 import jakarta.annotation.PreDestroy;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
@@ -79,6 +81,40 @@ public class MonitoringService {
         if (standaloneExecutor != null) {
             standaloneExecutor.shutdown();
         }
+    }
+
+    /**
+     * Send a log message to all connected dashboard clients.
+     */
+    public void sendLogMessage(String message, String type) {
+        Map<String, Object> logMessage = new HashMap<>();
+        logMessage.put("type", "log");
+        logMessage.put("message", message);
+        logMessage.put("level", type);
+        logMessage.put("timestamp", System.currentTimeMillis());
+
+        messagingTemplate.convertAndSend("/topic/monitor", logMessage);
+    }
+
+    /**
+     * Send a log message with info level.
+     */
+    public void sendInfoLog(String message) {
+        sendLogMessage(message, "info");
+    }
+
+    /**
+     * Send a log message with success level.
+     */
+    public void sendSuccessLog(String message) {
+        sendLogMessage(message, "success");
+    }
+
+    /**
+     * Send a log message with error level.
+     */
+    public void sendErrorLog(String message) {
+        sendLogMessage(message, "error");
     }
 
     /**
@@ -184,12 +220,28 @@ public class MonitoringService {
                 if (monitorId.contains("CPU") || monitorId.contains("cpu")) {
                     double cpuValue = metrics.getCurrentValue();
                     update.setCpuUsage(cpuValue);
+                    // Set CPU monitor state based on current value and thresholds
+                    if (cpuValue >= metrics.getHotThreshold()) {
+                        update.setCpuMonitorState("HOT");
+                    } else if (cpuValue >= metrics.getColdThreshold()) {
+                        update.setCpuMonitorState("WARNING");
+                    } else {
+                        update.setCpuMonitorState("NORMAL");
+                    }
                     if (cpuValue > 50) {
                         log.debug("CPU from library monitor: {}%", cpuValue);
                     }
                 } else if (monitorId.contains("Memory") || monitorId.contains("memory")) {
                     double memValue = metrics.getCurrentValue();
                     update.setMemoryUsage(memValue);
+                    // Set memory monitor state based on current value and thresholds
+                    if (memValue >= metrics.getHotThreshold()) {
+                        update.setMemoryMonitorState("HOT");
+                    } else if (memValue >= metrics.getColdThreshold()) {
+                        update.setMemoryMonitorState("WARNING");
+                    } else {
+                        update.setMemoryMonitorState("NORMAL");
+                    }
                     if (memValue > 50) {
                         log.debug("Memory from library monitor: {}%", memValue);
                     }
@@ -255,6 +307,8 @@ public class MonitoringService {
         private boolean paused;
         private boolean cpuLoadActive;
         private boolean memoryLoadActive;
+        private String cpuMonitorState;
+        private String memoryMonitorState;
 
         // Getters and setters
         public long getTimestamp() { return timestamp; }
@@ -281,5 +335,9 @@ public class MonitoringService {
         public void setCpuLoadActive(boolean cpuLoadActive) { this.cpuLoadActive = cpuLoadActive; }
         public boolean isMemoryLoadActive() { return memoryLoadActive; }
         public void setMemoryLoadActive(boolean memoryLoadActive) { this.memoryLoadActive = memoryLoadActive; }
+        public String getCpuMonitorState() { return cpuMonitorState; }
+        public void setCpuMonitorState(String cpuMonitorState) { this.cpuMonitorState = cpuMonitorState; }
+        public String getMemoryMonitorState() { return memoryMonitorState; }
+        public void setMemoryMonitorState(String memoryMonitorState) { this.memoryMonitorState = memoryMonitorState; }
     }
 }
