@@ -1,10 +1,32 @@
-# Throttle
+<h1 align="center">Throttle</h1>
 
-[![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](LICENSE)
-[![Java](https://img.shields.io/badge/Java-17%2B-orange.svg)](https://openjdk.org/)
-[![Maven Central](https://img.shields.io/badge/Maven%20Central-1.0.0-brightgreen.svg)](https://search.maven.org/artifact/io.github.throttle/throttle)
+<p align="center">
+  <a href="https://central.sonatype.com/artifact/io.github.sdeonvacation/throttle"><img src="https://img.shields.io/maven-central/v/io.github.sdeonvacation/throttle?label=Maven%20Central&color=brightgreen" alt="Maven Central"></a>
+  <img src="https://img.shields.io/badge/Java-17%2B-orange.svg" alt="Java 17+">
+  <a href="https://github.com/sdeonvacation/throttle/blob/master/LICENSE"><img src="https://img.shields.io/badge/License-Apache%202.0-blue.svg" alt="Apache License 2.0"></a>
+  <a href="https://javadoc.io/doc/io.github.sdeonvacation/throttle"><img src="https://javadoc.io/badge2/io.github.sdeonvacation/throttle/javadoc.svg" alt="Javadoc"></a>
+  <img src="https://img.shields.io/github/last-commit/sdeonvacation/throttle" alt="Last Commit">
+</p>
 
-A Java library for adaptive task execution with resource-aware monitoring and automatic pause/resume capabilities.
+<p align="center">
+  <b>Resource-aware task execution with automatic pause/resume for Java applications</b>
+</p>
+
+<p align="center">
+  <a href="#key-features">Features</a> •
+  <a href="#quick-start">Quick Start</a> •
+  <a href="#why-use-throttle">Why Throttle?</a> •
+  <a href="#configuration-options">Configuration</a> •
+  <a href="#simulator">Simulator</a> •
+  <a href="https://github.com/sdeonvacation/throttle/issues">Report Bug</a> •
+  <a href="https://github.com/sdeonvacation/throttle/issues">Request Feature</a>
+</p>
+
+---
+
+<p align="center">
+  <i>Offload heavy background tasks to Throttle and let your application focus on business logic</i>
+</p>
 
 ## Overview
 
@@ -46,13 +68,22 @@ Modern applications often need to run heavy background tasks alongside their cor
 - Prioritizes critical tasks over routine maintenance jobs
 - Terminates problematic tasks that consume excessive resources
 
+**Complements Auto-Scaling**: Throttle works alongside auto-scaling strategies, not instead of them:
+- **Task-level vs Instance-level**: While auto-scaling adds more instances to handle load, Throttle manages resource contention between tasks running on the same instance
+- **Cost efficiency**: Throttle optimizes existing resources before you need to scale, potentially reducing the number of instances required
+- **Background work coordination**: Throttle intelligently pauses low-priority tasks when resources are needed for high-priority work, something horizontal scaling can't address within each instance
+- **Predictable performance**: Instead of unpredictable resource contention, Throttle provides deterministic behavior where background tasks yield to critical work
+- **Comprehensive strategy**: Use both auto-scaling to add capacity across instances and Throttle to optimize utilization within each instance
+
+**Essential for Non-Autoscaling Environments**: In platforms where auto-scaling is not available (e.g., Cloud Foundry, on-premise deployments, fixed-capacity environments), Throttle becomes critical for preventing OutOfMemoryErrors and CPU exhaustion. Without auto-scaling to add capacity, Throttle ensures your application survives load spikes by automatically throttling background work.
+
 ## Complete Client-Side Control
 
 **You control everything** - Throttle provides intelligent resource management without dictating how your application should run:
 
 ### 🎛️ Control Your Thread Pools
 - **Worker threads**: Provide your own `ExecutorService` for task execution or use the default (2 threads)
-- **Control plane threads**: Provide your own `ExecutorService` for monitoring/coordination or use the default (2 threads)
+- **Monitoring threads**: Provide your own `ExecutorService` for monitoring/coordination or use the default (2 threads)
 - **Example**: `Executors.newFixedThreadPool(10)`, `Executors.newCachedThreadPool()`, or any custom implementation
 
 ### 🔧 Configure All Parameters
@@ -86,113 +117,166 @@ Access detailed metrics at any time:
 </dependency>
 ```
 
-### Basic Usage
+### Usage Example
 
-```java
-import io.github.throttle.service.api.*;
-import io.github.throttle.service.base.*;
-import io.github.throttle.service.factory.*;
-import java.time.Duration;
-import java.util.concurrent.Executors;
+> **Why extend AbstractChunkableTask?** Java doesn't provide a way to natively pause a running thread and resume it from the same point. Throttle solves this by splitting work into **chunks that act as checkpoints** - the executor can pause a task after completing a chunk and resume it later from the next chunk.
 
-// Create a throttle
-ThrottleService executor = ThrottleServiceFactory.builder()
-    .workerExecutorService(Executors.newFixedThreadPool(5))
-    .queueCapacity(100)
-    .cpuMonitor(75, 50)          // hot=75%, cold=50%
-    .memoryMonitor(70, 50)
-    .hysteresis(Duration.ofSeconds(10))
-    .coldMonitoringInterval(Duration.ofSeconds(5))
-    .hotMonitoringDebounceInterval(Duration.ofMillis(100))
-    .maxPauseCount(5)
-    .taskTerminationEnabled(true)
-    .build();
+Consider an e-commerce application that processes orders (business logic) and also runs batch reports (background task):
 
-// Define your task
-AdaptiveTask<String> task = new AdaptiveTask<String>() {
-    @Override
-    public String call() {
-        return processChunked(items);
-    }
-
-    @Override
-    protected String processChunk(List<Item> chunk) {
-        // Process a chunk of work
-        return process(chunk);
-    }
-
-    @Override
-    protected void onPause() {
-        System.out.println("Task paused due to resource constraints");
-    }
-
-    @Override
-    protected void onResume() {
-        System.out.println("Task resumed");
-    }
-};
-
-// Submit and get result
-Future<String> future = executor.submit(task);
-String result = future.get();
-
-// Shutdown when done
-executor.shutdown();
-executor.awaitTermination(30, TimeUnit.SECONDS);
-```
-
-### Real-World Application Example
-
-Here's how a typical web application would use Throttle to offload heavy background tasks:
+#### Before: Using standard ExecutorService
 
 ```java
 @Service
 public class OrderService {
-    private final ThrottleService backgroundExecutor;
+    private final ExecutorService backgroundExecutor = Executors.newFixedThreadPool(4);
 
-    @Autowired
-    public OrderService() {
-        // Initialize Throttle once at application startup
-        this.backgroundExecutor = ThrottleServiceFactory.builder()
-            .workerExecutorService(Executors.newFixedThreadPool(3))
+    // Business logic - must stay responsive
+    public Order createOrder(OrderRequest request) {
+        return orderRepository.save(new Order(request));
+    }
+
+    // Background task - processes thousands of records
+    public void generateDailyReport(List<Order> orders) {
+        backgroundExecutor.submit(() -> {
+            for (Order order : orders) {
+                reportService.process(order);  // If this runs during peak hours,
+            }                                   // it starves createOrder() of CPU
+        });
+    }
+}
+```
+
+**Problem:** During peak traffic, `generateDailyReport()` competes with `createOrder()` for CPU. Your customers experience slow checkouts because background reports are consuming resources.
+
+#### After: Using Throttle
+
+```java
+@Service
+public class OrderService {
+    private final ThrottleService backgroundExecutor = ThrottleServiceFactory.builder()
+        .cpuMonitor(75, 50)      // Pause background tasks when CPU > 75%
+        .memoryMonitor(70, 50)   // Pause when memory > 70%
+        .build();
+
+    // Business logic - stays responsive because background tasks pause when needed
+    public Order createOrder(OrderRequest request) {
+        return orderRepository.save(new Order(request));
+    }
+
+    // Background task - automatically pauses when system is under load
+    public void generateDailyReport(List<Order> orders) {
+        // process orders in chunks of 100
+        backgroundExecutor.submit(new AbstractChunkableTask<Order>(orders, Priority.LOW, 100) {
+            @Override
+            public void processChunk(List<Order> chunk) {
+                for (Order order : chunk) {
+                    reportService.process(order);  // Pauses at chunk boundaries
+                }                                   // when CPU/memory is high
+            }
+        });
+    }
+}
+```
+
+**Result:** During peak traffic, Throttle automatically pauses `generateDailyReport()` to free up resources for `createOrder()`. When traffic subsides, reports resume automatically.
+
+## AbstractChunkableTask API Reference
+
+To create a task, extend `AbstractChunkableTask<T>` and implement `processChunk()`:
+
+```java
+public abstract class AbstractChunkableTask<T> {
+
+    // Constructor: items to process, priority level, items per chunk
+    protected AbstractChunkableTask(List<T> items, Priority priority, int chunkSize);
+
+    // REQUIRED: Process one chunk of items (called repeatedly until all items done)
+    public abstract void processChunk(List<T> chunk) throws Exception;
+
+    // OPTIONAL: Called when all chunks complete successfully
+    public void onComplete() {}
+
+    // OPTIONAL: Called when task fails or is killed
+    public void onError(Throwable error) {}
+
+    // OPTIONAL: Called when task is cancelled
+    public void onCancel() {}
+
+    // Utility methods available to your implementation
+    protected int getTotalItemCount();  // Total items in task
+    protected int getChunkSize();       // Configured chunk size
+    public String getTaskId();          // Unique task ID
+    public int getPauseCount();         // Times this task was paused
+    public Priority getPriority();      // Task priority (HIGH/MEDIUM/LOW)
+}
+```
+
+**How it works:** You provide a list of items and a chunk size. Throttle automatically:
+1. Splits your items into chunks
+2. Calls `processChunk()` for each chunk
+3. Checks CPU/memory between chunks — pauses if resources are constrained
+4. Resumes from the next chunk when resources are available
+5. Calls `onComplete()` when done, or `onError()` if something fails
+
+## Spring Boot Integration
+
+Throttle works as a standard Spring Bean. Create a `@Bean` and inject it where needed:
+
+```java
+@Configuration
+public class ThrottleConfig {
+
+    @Bean
+    public ThrottleService throttleService() {
+        return ThrottleServiceFactory.builder()
+            .workerExecutorService(Executors.newFixedThreadPool(4))
             .cpuMonitor(75, 50)
             .memoryMonitor(70, 50)
             .build();
     }
 
-    // Main business logic - runs immediately
-    public Order createOrder(OrderRequest request) {
-        Order order = processOrderImmediately(request);
-
-        // Submit heavy background tasks to Throttle
-        // These run when resources are available, without blocking business logic
-        backgroundExecutor.submit(
-            new EmailNotificationTask(order, Priority.HIGH, 50)
-        );
-        backgroundExecutor.submit(
-            new InventoryUpdateTask(order.getItems(), Priority.MEDIUM, 100)
-        );
-        backgroundExecutor.submit(
-            new AnalyticsReportTask(order, Priority.LOW, 200)
-        );
-
-        return order;  // Return immediately, background tasks handled by Throttle
-    }
-
     @PreDestroy
-    public void cleanup() {
-        backgroundExecutor.shutdown();
-        backgroundExecutor.awaitTermination(30, TimeUnit.SECONDS);
+    public void shutdown() {
+        throttleService().shutdown();
+    }
+}
+
+@Service
+public class ReportService {
+
+    @Autowired
+    private ThrottleService throttleService;  // Inject and use
+
+    public void generateReport(List<Order> orders) {
+        throttleService.submit(new AbstractChunkableTask<>(orders, Priority.LOW, 100) {
+            @Override
+            public void processChunk(List<Order> chunk) {
+                // process chunk
+            }
+        });
     }
 }
 ```
 
-**Benefits of this approach**:
-- ✅ Business logic (order creation) completes immediately
-- ✅ Background tasks (emails, analytics) don't consume resources needed for critical operations
-- ✅ System remains responsive even under high load
-- ✅ Throttle automatically pauses background tasks if CPU/memory spike
-- ✅ Low-priority analytics don't interfere with high-priority notifications
+## Comparison with Alternatives
+
+| Feature | Throttle | Standard ExecutorService | Resilience4j Bulkhead | Spring Batch |
+|---------|----------|--------------------------|----------------------|--------------|
+| CPU-aware auto-pause | ✅ | ❌ | ❌ | ❌ |
+| Memory-aware throttling | ✅ | ❌ | ❌ | ❌ |
+| Chunked checkpoints | ✅ | ❌ | ❌ | ✅ |
+| Priority scheduling | ✅ | ❌ | ❌ | Limited |
+| Zero dependencies | ✅ | ✅ | ❌ | ❌ |
+| Auto-resume when resources free | ✅ | ❌ | ❌ | ❌ |
+| Client controls thread pools | ✅ | ✅ | ✅ | Limited |
+
+**When to use Throttle:** Background tasks that should yield to business logic when resources are tight.
+
+**When NOT to use Throttle:**
+- Sub-millisecond latency requirements (chunk overhead adds ~1ms)
+- Tasks that can't be split into chunks (e.g., single atomic operations)
+- You need a full job scheduler with persistence (use Quartz or Spring Batch)
+- Simple fire-and-forget tasks with no resource concerns (use plain ExecutorService)
 
 ## Architecture
 
@@ -210,7 +294,7 @@ The executor uses a checkpoint-driven monitoring approach to minimize CPU overhe
 
 1. **Checkpoint-Driven Monitoring**: Monitors are sampled only when tasks reach chunk boundaries (checkpoints), not continuously
 2. **Debounced Sampling**: Multiple workers hitting checkpoints simultaneously trigger only one monitor sample (100ms debounce window)
-3. **COLD Mode Resume Detection**: While paused, a dedicated control plane thread polls monitors every 5 seconds to detect when resources cool down
+3. **Resume Detection**: While paused, a dedicated monitoring thread polls every 5 seconds to detect when resources cool down
 
 This approach ensures near-zero monitoring overhead - monitors are only checked at natural pause points in task execution.
 
@@ -251,7 +335,7 @@ You have **complete control** over the thread pools:
 // Example 1: Large worker pool for high throughput
 ThrottleService executor = ThrottleServiceFactory.builder()
     .workerExecutorService(Executors.newFixedThreadPool(20))
-    .controlPlaneExecutorService(Executors.newFixedThreadPool(2))
+    .controlPlaneExecutorService(Executors.newFixedThreadPool(2))  // monitoring threads
     .build();
 
 // Example 2: Cached thread pool for dynamic workloads
@@ -273,24 +357,57 @@ ThrottleService executor = ThrottleServiceFactory.builder()
     .build();
 ```
 
-## Simulator
+## Simulator/Monitoring
 
-The project includes a comprehensive simulator for testing and demonstration. See [simulator/docs/README.md](simulator/docs/README.md) for details.
-
-The simulator provides:
-- Real-time dashboard with WebSocket updates
-- 12 test scenarios (7 positive, 5 edge cases)
-- Independent CPU and memory load generators
-- Live metrics and monitoring
-
-To run the simulator:
+**For Testing & Visualization Only** - The project includes a comprehensive simulator with a live dashboard for testing Throttle's behavior:
 
 ```bash
 cd simulator
 mvn spring-boot:run
+# Open http://localhost:8080/api/simulator/dashboard
 ```
 
-Then open http://localhost:8080/api/simulator/dashboard
+![Throttle Dashboard](docs/images/dashboard-preview.png)
+*Simulator dashboard showing real-time CPU/memory usage, task metrics, and pause/resume behavior*
+
+**Features:**
+- Real-time monitoring dashboard with WebSocket updates
+- 12 test scenarios (7 positive, 5 edge cases)
+- Independent CPU and memory load generators
+- Live visualization of task execution and system state
+
+**Note:** The dashboard is part of the simulator test package only. Throttle itself is a library with no UI - you can monitor it using the built-in APIs:
+
+```java
+// Get executor metrics
+ExecutorMetrics metrics = throttleService.getMetrics();
+System.out.println("Active threads: " + metrics.getActiveThreads());
+System.out.println("Queue size: " + metrics.getQueueSize());
+System.out.println("Tasks completed: " + metrics.getTasksCompleted());
+System.out.println("Is paused: " + metrics.isPaused());
+
+// Get monitor states
+List<ResourceMonitor> monitors = throttleService.getMonitors();
+for (ResourceMonitor monitor : monitors) {
+    MonitorMetrics monitorMetrics = monitor.getMetrics();
+    System.out.println(monitor.getId() + ": " + monitor.evaluate());
+}
+```
+
+Integrate these metrics into your own monitoring systems (Prometheus, Grafana, DataDog, etc.).
+
+See [simulator/docs/README.md](simulator/docs/README.md) for details.
+
+## Roadmap
+
+Planned enhancements (see [INTELLIGENT_FEATURES_PROPOSAL.md](INTELLIGENT_FEATURES_PROPOSAL.md) for details):
+
+- **Per-Task Metrics** - Deep visibility into task execution (queue wait, execution time, pause count)
+- **Health Scoring** - At-a-glance system health with component breakdown
+- **Anomaly Detection** - Detect execution time anomalies and excessive pauses using statistical analysis
+- **Workload Profiling** - Learn task characteristics and recommend optimal chunk sizes
+
+All planned features are designed with minimal overhead (~250KB memory, <10ms CPU per task).
 
 ## Requirements
 
@@ -317,6 +434,29 @@ mvn test
 
 Contributions are welcome! Please see [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
 
-## Support
+### Contributors
 
-For issues, questions, or contributions, please visit the [GitHub repository](https://github.com/sdeonvacation/throttle).
+<a href="https://github.com/sdeonvacation/throttle/graphs/contributors">
+  <img src="https://contrib.rocks/image?repo=sdeonvacation/throttle" />
+</a>
+
+## Community & Support
+
+- 💬 **Discussions**: [GitHub Discussions](https://github.com/sdeonvacation/throttle/discussions) - Ask questions, share ideas
+- 🐛 **Issues**: [GitHub Issues](https://github.com/sdeonvacation/throttle/issues) - Report bugs or request features
+- ⭐ **Star this repo** if you find it useful!
+- 🍴 **Fork & contribute** - We appreciate all contributions
+
+## Star History
+
+[![Star History Chart](https://api.star-history.com/svg?repos=sdeonvacation/throttle&type=Date)](https://star-history.com/#sdeonvacation/throttle&Date)
+
+---
+
+<p align="center">
+  Made with ❤️ by <a href="https://www.linkedin.com/in/mauryasam">Sambhrant Maurya</a>
+</p>
+
+<p align="center">
+  <sub>If you find Throttle useful, please consider giving it a ⭐ on GitHub!</sub>
+</p>
