@@ -1,0 +1,34 @@
+---
+name: Welcome
+on:
+  issues:
+    types: [opened]
+  pull_requests:
+    types: [opened]
+
+jobs:
+  welcome:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/first-interaction@v1
+        with:
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
+          issue-message: |
+            👋 Thanks for opening your first issue! We appreciate your contribution to Throttle.
+
+            Please make sure to:
+            - Provide a clear description of the issue
+            - Include steps to reproduce (if applicable)
+            - Mention your Java version and environment
+
+            A maintainer will review your issue soon. In the meantime, feel free to check out our [documentation](https://github.com/sdeonvacation/throttle#readme) and [examples](https://github.com/sdeonvacation/throttle/tree/master/simulator).
+          pr-message: |
+            🎉 Thanks for opening your first pull request! We're excited to review your contribution.
+
+            Please ensure:
+            - All tests pass (`mvn test`)
+            - Your code follows the existing code style
+            - You've updated documentation if needed
+            - You've added tests for new functionality
+
+            A maintainer will review your PR soon. Thanks for contributing to Throttle! 🚀

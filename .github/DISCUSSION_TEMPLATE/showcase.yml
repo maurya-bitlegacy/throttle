@@ -1,0 +1,49 @@
+labels: [showcase]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        🎉 Share how you're using Throttle! Your story could help others.
+
+  - type: textarea
+    id: project
+    attributes:
+      label: Your Project
+      description: Tell us about your project and how you use Throttle
+      placeholder: |
+        Example:
+        - Project type (web app, data pipeline, microservice, etc.)
+        - Scale (tasks per day, data volume, etc.)
+        - What problems Throttle solved for you
+    validations:
+      required: true
+
+  - type: textarea
+    id: benefits
+    attributes:
+      label: Benefits & Results
+      description: What improvements did you see?
+      placeholder: |
+        Example:
+        - Reduced system overload by 80%
+        - Improved application responsiveness
+        - Simplified background job management
+    validations:
+      required: false
+
+  - type: input
+    id: link
+    attributes:
+      label: Link (Optional)
+      description: GitHub repo, blog post, or website
+      placeholder: https://github.com/yourname/project
+    validations:
+      required: false
+
+  - type: checkboxes
+    id: permission
+    attributes:
+      label: Permission
+      options:
+        - label: I give permission for this to be featured in Throttle's documentation/blog
+          required: false

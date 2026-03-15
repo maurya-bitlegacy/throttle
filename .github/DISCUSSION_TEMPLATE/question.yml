@@ -1,0 +1,37 @@
+labels: [question]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for asking a question! Please provide as much detail as possible.
+
+  - type: textarea
+    id: question
+    attributes:
+      label: What's your question?
+      description: Describe what you'd like to know about Throttle
+    validations:
+      required: true
+
+  - type: textarea
+    id: context
+    attributes:
+      label: Context
+      description: Any relevant context (code snippets, use case, environment)
+      placeholder: |
+        Example:
+        - Java version: 17
+        - Spring Boot version: 3.5.3
+        - What you're trying to achieve
+    validations:
+      required: false
+
+  - type: checkboxes
+    id: checklist
+    attributes:
+      label: Before submitting
+      options:
+        - label: I've searched existing discussions and issues
+          required: true
+        - label: I've read the documentation
+          required: true
