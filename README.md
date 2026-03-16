@@ -9,7 +9,7 @@
 </p>
 
 <p align="center">
-  <b>Resource-aware task execution with automatic pause/resume for Java applications</b>
+  <b>A resource-aware executor for chunkable workloads - calm under load, relentless when clear.</b>
 </p>
 
 <p align="center">
@@ -31,6 +31,8 @@
 ## Overview
 
 Throttle is a sophisticated task execution framework that automatically adapts to system resource availability. It monitors CPU and memory usage and intelligently pauses/resumes task execution to prevent system overload, making it ideal for resource-intensive batch processing applications.
+
+**Designed for chunkable workloads** - Tasks must be splittable into chunks (logical units of work) that act as checkpoints. This is fundamental because Java provides no way to natively pause and resume a running thread mid-execution.
 
 **Offload Heavy Background Tasks**: Submit any application's heavy background tasks (data processing, file operations, batch jobs, report generation) to Throttle, allowing your application to focus on running actual business logic while Throttle manages resource-intensive operations intelligently.
 
@@ -270,7 +272,7 @@ public class ReportService {
 | Auto-resume when resources free | ✅ | ❌ | ❌ | ❌ |
 | Client controls thread pools | ✅ | ✅ | ✅ | Limited |
 
-**When to use Throttle:** Background tasks that should yield to business logic when resources are tight.
+**When to use Throttle:** Background tasks that are chunkable and should yield to business logic when resources are tight.
 
 **When NOT to use Throttle:**
 - Sub-millisecond latency requirements (chunk overhead adds ~1ms)
