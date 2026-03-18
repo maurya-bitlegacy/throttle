@@ -148,7 +148,7 @@
             <!-- OWASP Dependency Check -->
             <plugin>
                 <groupId>org.owasp</groupId>
-<artifactId>dependency-check-maven</artifactId>
+                <artifactId>dependency-check-maven</artifactId>
                 <version>${dependency-check.version}</version>
                 <configuration>
                     <failBuildOnCVSS>7</failBuildOnCVSS>
